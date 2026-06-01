@@ -1,3 +1,6 @@
+> [!WARNING]
+> **This fork is 100% vibe coded.** It is an experimental fork of gotify/server and is not affiliated with or endorsed by the upstream project. Use at your own risk.
+
 <p align="center">
     <a href="https://github.com/gotify/logo">
         <img height="275px" src="https://raw.githubusercontent.com/gotify/logo/master/gotify-logo.png" />
@@ -29,6 +32,29 @@
 
 ## Intro
 We wanted a simple server for sending and receiving messages (in real time per WebSocket). For this, not many open source projects existed and most of the existing ones were abandoned. Also, a requirement was that it can be self-hosted. We know there are many free and commercial push services out there.
+
+## Build & Run (this fork)
+
+Build the Docker image (compiles the React UI and the Go binary inside containers, so no local Node/Go toolchain is required):
+
+```sh
+docker buildx build \
+    --build-arg GO_VERSION=1.26.0 \
+    --build-arg BUILD_JS=1 \
+    --build-arg RUN_TESTS=1 \
+    --platform linux/amd64 \
+    -t gotify/server:dev \
+    --load \
+    -f docker/Dockerfile .
+```
+
+Run it:
+
+```sh
+docker run --rm -p 8080:80 -v gotify-data:/app/data gotify/server:dev
+```
+
+Then open http://localhost:8080 (default login `admin` / `admin`).
 
 ## Features
 

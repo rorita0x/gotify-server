@@ -56,7 +56,10 @@ type Configuration struct {
 	UploadedImagesDir string `default:"data/images"`
 	PluginsDir        string `default:"data/plugins"`
 	Registration      bool   `default:"false"`
-	OIDC              struct {
+	// ManagedUsers restricts user management (including password changes) to
+	// admins. When enabled, normal users cannot change their own password.
+	ManagedUsers bool `default:"false"`
+	OIDC         struct {
 		Enabled       bool   `default:"false"`
 		Issuer        string `default:""`
 		ClientID      string `default:""`

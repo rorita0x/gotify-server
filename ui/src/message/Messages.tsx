@@ -119,7 +119,7 @@ const Messages = observer(() => {
             title={name}
             rightControl={
                 <div>
-                    {app && (
+                    {app && admin && (
                         <Button
                             id="push-message"
                             variant="contained"

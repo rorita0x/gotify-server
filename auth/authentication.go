@@ -80,6 +80,13 @@ func (a *Auth) RequireApplicationOrClient(ctx *gin.Context) {
 	a.evaluateOr401(ctx, a.handleApplication, a.handleClient(), a.handleUser())
 }
 
+// RequireApplicationTokenOrAdmin requires either an application token or an admin
+// client/basic auth. This allows applications to push messages via their token,
+// while restricting client/user pushes (e.g. from the web UI) to admins.
+func (a *Auth) RequireApplicationTokenOrAdmin(ctx *gin.Context) {
+	a.evaluateOr401(ctx, a.handleApplication, a.handleClient(a.checkClientAdmin), a.handleUser(a.checkUserAdmin))
+}
+
 func (a *Auth) Optional(ctx *gin.Context) {
 	if !a.evaluate(ctx, a.handleUser(), a.handleClient()) {
 		ctx.Next()

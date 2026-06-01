@@ -19,4 +19,9 @@ type GotifyInfo struct {
 	// required: true
 	// example: true
 	Oidc bool `json:"oidc"`
+	// If users are managed by admins only (normal users cannot change their password).
+	//
+	// required: true
+	// example: false
+	ManagedUsers bool `json:"managedUsers"`
 }

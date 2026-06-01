@@ -118,6 +118,16 @@ func (s *AuthenticationSuite) TestQueryToken() {
 	s.assertQueryRequest("token", "clienttoken_admin_elevated", s.auth.RequireClient, 200)
 	s.assertQueryRequest("token", "clienttoken_admin_elevated", s.auth.RequireAdmin, 200)
 	s.assertQueryRequest("token", "clienttoken_admin_elevated", s.auth.RequireElevatedClient, 200)
+
+	// RequireApplicationTokenOrAdmin: any application token or an admin
+	// client/user is allowed; normal users (even elevated) are not.
+	s.assertQueryRequest("token", "ergerogerg", s.auth.RequireApplicationTokenOrAdmin, 401)
+	s.assertQueryRequest("token", "apptoken", s.auth.RequireApplicationTokenOrAdmin, 200)
+	s.assertQueryRequest("token", "apptoken_admin", s.auth.RequireApplicationTokenOrAdmin, 200)
+	s.assertQueryRequest("token", "clienttoken", s.auth.RequireApplicationTokenOrAdmin, 403)
+	s.assertQueryRequest("token", "clienttoken_elevated", s.auth.RequireApplicationTokenOrAdmin, 403)
+	s.assertQueryRequest("token", "clienttoken_admin", s.auth.RequireApplicationTokenOrAdmin, 200)
+	s.assertQueryRequest("token", "clienttoken_admin_elevated", s.auth.RequireApplicationTokenOrAdmin, 200)
 }
 
 func (s *AuthenticationSuite) assertQueryRequest(key, value string, f fMiddleware, code int) (ctx *gin.Context) {

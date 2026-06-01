@@ -114,7 +114,7 @@ func Create(db *database.GormDatabase, vInfo *model.VersionInfo, conf *config.Co
 	userChangeNotifier.OnUserDeleted(pluginManager.RemoveUser)
 	userChangeNotifier.OnUserAdded(pluginManager.InitializeForUserID)
 
-	ui.Register(g, *vInfo, conf.Registration, conf.OIDC.Enabled)
+	ui.Register(g, *vInfo, conf.Registration, conf.OIDC.Enabled, conf.ManagedUsers)
 
 	if conf.OIDC.Enabled {
 		oidcHandler := api.NewOIDC(conf, db, userChangeNotifier)
@@ -185,10 +185,12 @@ func Create(db *database.GormDatabase, vInfo *model.VersionInfo, conf *config.Co
 	//     schema:
 	//         $ref: "#/definitions/GotifyInfo"
 	g.GET("gotifyinfo", func(ctx *gin.Context) {
-		ctx.JSON(200, &model.GotifyInfo{Version: vInfo.Version, Oidc: conf.OIDC.Enabled, Register: conf.Registration})
+		ctx.JSON(200, &model.GotifyInfo{Version: vInfo.Version, Oidc: conf.OIDC.Enabled, Register: conf.Registration, ManagedUsers: conf.ManagedUsers})
 	})
 
-	g.Group("/").Use(authentication.RequireApplicationOrClient).POST("/message", messageHandler.CreateMessage)
+	// Pushing messages is allowed via application tokens or by admins; normal
+	// users cannot push messages.
+	g.Group("/").Use(authentication.RequireApplicationTokenOrAdmin).POST("/message", messageHandler.CreateMessage)
 
 	clientAuth := g.Group("")
 	{
@@ -223,8 +225,15 @@ func Create(db *database.GormDatabase, vInfo *model.VersionInfo, conf *config.Co
 		clientElevated.Use(authentication.RequireElevatedClient)
 		clientElevated.POST("/client/:id/elevate", clientHandler.ElevateClient)
 		clientElevated.DELETE("/client/:id", clientHandler.DeleteClient)
-		clientElevated.POST("/current/user/password", userHandler.ChangePassword)
 	}
+
+	// When users are admin-managed, changing a password requires admin access
+	// (admins may still change their own); otherwise any elevated client may.
+	changePasswordAuth := authentication.RequireElevatedClient
+	if conf.ManagedUsers {
+		changePasswordAuth = authentication.RequireAdmin
+	}
+	g.Group("").Use(changePasswordAuth).POST("/current/user/password", userHandler.ChangePassword)
 
 	adminAuth := g.Group("")
 	{

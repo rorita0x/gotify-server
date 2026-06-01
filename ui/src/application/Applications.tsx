@@ -60,7 +60,8 @@ const useStyles = makeStyles()((theme) => ({
 }));
 
 const Applications = observer(() => {
-    const {appStore} = useStores();
+    const {appStore, currentUser} = useStores();
+    const admin = currentUser.user.admin;
     const apps = appStore.getItems();
     const [toDeleteApp, setToDeleteApp] = useState<IApplication>();
     const [toDeleteImage, setToDeleteImage] = useState<IApplication>();
@@ -103,13 +104,15 @@ const Applications = observer(() => {
         <DefaultPage
             title="Applications"
             rightControl={
-                <Button
-                    id="create-app"
-                    variant="contained"
-                    color="primary"
-                    onClick={() => setCreateDialog(true)}>
-                    Create Application
-                </Button>
+                admin ? (
+                    <Button
+                        id="create-app"
+                        variant="contained"
+                        color="primary"
+                        onClick={() => setCreateDialog(true)}>
+                        Create Application
+                    </Button>
+                ) : undefined
             }
             maxWidth={1000}>
             <Grid size={12}>
@@ -139,6 +142,7 @@ const Applications = observer(() => {
                                         <Row
                                             key={app.id}
                                             app={app}
+                                            admin={admin}
                                             fUpload={() => handleImageUploadClick(app.id)}
                                             fDeleteImage={() => setToDeleteImage(app)}
                                             fDelete={() => setToDeleteApp(app)}
@@ -198,18 +202,20 @@ const Applications = observer(() => {
 
 interface IRowProps {
     app: IApplication;
+    admin: boolean;
     fUpload: VoidFunction;
     fDeleteImage: VoidFunction;
     fDelete: VoidFunction;
     fEdit: VoidFunction;
 }
 
-const Row = ({app, fDelete, fUpload, fDeleteImage, fEdit}: IRowProps) => {
+const Row = ({app, admin, fDelete, fUpload, fDeleteImage, fEdit}: IRowProps) => {
     const {classes} = useStyles();
     const isDefaultImage = app.image === 'static/defaultapp.png';
 
     const {attributes, listeners, setNodeRef, transform, transition, isDragging} = useSortable({
         id: app.id,
+        disabled: !admin,
     });
 
     const style = {
@@ -222,36 +228,49 @@ const Row = ({app, fDelete, fUpload, fDeleteImage, fEdit}: IRowProps) => {
     return (
         <TableRow ref={setNodeRef} style={style}>
             <TableCell padding="none" style={{paddingLeft: 5}}>
-                <div
-                    {...attributes}
-                    {...listeners}
-                    style={{
-                        cursor: 'grab',
-                        display: 'flex',
-                        alignItems: 'center',
-                        touchAction: 'none',
-                    }}>
-                    <DragIndicator style={{color: '#999'}} />
-                </div>
+                {admin && (
+                    <div
+                        {...attributes}
+                        {...listeners}
+                        style={{
+                            cursor: 'grab',
+                            display: 'flex',
+                            alignItems: 'center',
+                            touchAction: 'none',
+                        }}>
+                        <DragIndicator style={{color: '#999'}} />
+                    </div>
+                )}
             </TableCell>
             <TableCell padding="normal">
                 <div style={{display: 'flex'}}>
-                    <Tooltip title="Delete image" placement="top" arrow>
-                        <ButtonBase
-                            className={classes.imageContainer}
-                            onClick={fDeleteImage}
-                            disabled={isDefaultImage}>
-                            <img
-                                src={config.get('url') + app.image}
-                                alt="app logo"
-                                width="40"
-                                height="40"
-                            />
-                        </ButtonBase>
-                    </Tooltip>
-                    <IconButton onClick={fUpload} style={{height: 40}}>
-                        <CloudUpload />
-                    </IconButton>
+                    {admin ? (
+                        <Tooltip title="Delete image" placement="top" arrow>
+                            <ButtonBase
+                                className={classes.imageContainer}
+                                onClick={fDeleteImage}
+                                disabled={isDefaultImage}>
+                                <img
+                                    src={config.get('url') + app.image}
+                                    alt="app logo"
+                                    width="40"
+                                    height="40"
+                                />
+                            </ButtonBase>
+                        </Tooltip>
+                    ) : (
+                        <img
+                            src={config.get('url') + app.image}
+                            alt="app logo"
+                            width="40"
+                            height="40"
+                        />
+                    )}
+                    {admin && (
+                        <IconButton onClick={fUpload} style={{height: 40}}>
+                            <CloudUpload />
+                        </IconButton>
+                    )}
                 </div>
             </TableCell>
             <TableCell>{app.name}</TableCell>
@@ -265,14 +284,18 @@ const Row = ({app, fDelete, fUpload, fDeleteImage, fEdit}: IRowProps) => {
             </TableCell>
             <TableCell title={app.createdAt}>{formatDate(app.createdAt)}</TableCell>
             <TableCell align="right" padding="none">
-                <IconButton onClick={fEdit} className="edit">
-                    <Edit />
-                </IconButton>
+                {admin && (
+                    <IconButton onClick={fEdit} className="edit">
+                        <Edit />
+                    </IconButton>
+                )}
             </TableCell>
             <TableCell align="right" padding="none">
-                <IconButton onClick={fDelete} className="delete" disabled={app.internal}>
-                    <Delete />
-                </IconButton>
+                {admin && (
+                    <IconButton onClick={fDelete} className="delete" disabled={app.internal}>
+                        <Delete />
+                    </IconButton>
+                )}
             </TableCell>
         </TableRow>
     );

@@ -79,11 +79,14 @@ func (a *API) NotifyDeletedClient(userID uint, token string) {
 	}
 }
 
-// Notify notifies the clients with the given userID that a new messages was created.
+// Notify notifies all connected clients that a new message was created.
+// Applications are shared across all users, so every connected client receives
+// every message regardless of the userID the message originated from. The userID
+// parameter is retained to satisfy the Notifier interface but is not used for routing.
 func (a *API) Notify(userID uint, msg *model.MessageExternal) {
 	a.lock.RLock()
 	defer a.lock.RUnlock()
-	if clients, ok := a.clients[userID]; ok {
+	for _, clients := range a.clients {
 		for _, c := range clients {
 			c.write <- msg
 		}

@@ -18,10 +18,10 @@ import (
 type MessageDatabase interface {
 	GetMessagesByApplicationSince(appID uint, limit int, since uint) ([]*model.Message, error)
 	GetApplicationByID(id uint) (*model.Application, error)
-	GetMessagesByUserSince(userID uint, limit int, since uint) ([]*model.Message, error)
+	GetMessagesSince(limit int, since uint) ([]*model.Message, error)
 	DeleteMessageByID(id uint) error
 	GetMessageByID(id uint) (*model.Message, error)
-	DeleteMessagesByUser(userID uint) error
+	DeleteAllMessages() error
 	DeleteMessagesByApplication(applicationID uint) error
 	CreateMessage(message *model.Message) error
 }
@@ -86,10 +86,9 @@ type pagingParams struct {
 //	    schema:
 //	        $ref: "#/definitions/Error"
 func (a *MessageAPI) GetMessages(ctx *gin.Context) {
-	userID := auth.GetUserID(ctx)
 	withPaging(ctx, func(params *pagingParams) {
 		// the +1 is used to check if there are more messages and will be removed on buildWithPaging
-		messages, err := a.DB.GetMessagesByUserSince(userID, params.Limit+1, params.Since)
+		messages, err := a.DB.GetMessagesSince(params.Limit+1, params.Since)
 		if success := successOrAbort(ctx, 500, err); !success {
 			return
 		}
@@ -183,7 +182,7 @@ func (a *MessageAPI) GetMessagesWithApplication(ctx *gin.Context) {
 			if success := successOrAbort(ctx, 500, err); !success {
 				return
 			}
-			if app != nil && app.UserID == auth.GetUserID(ctx) {
+			if app != nil {
 				// the +1 is used to check if there are more messages and will be removed on buildWithPaging
 				messages, err := a.DB.GetMessagesByApplicationSince(id, params.Limit+1, params.Since)
 				if success := successOrAbort(ctx, 500, err); !success {
@@ -217,8 +216,7 @@ func (a *MessageAPI) GetMessagesWithApplication(ctx *gin.Context) {
 //	    schema:
 //	        $ref: "#/definitions/Error"
 func (a *MessageAPI) DeleteMessages(ctx *gin.Context) {
-	userID := auth.GetUserID(ctx)
-	successOrAbort(ctx, 500, a.DB.DeleteMessagesByUser(userID))
+	successOrAbort(ctx, 500, a.DB.DeleteAllMessages())
 }
 
 // DeleteMessageWithApplication deletes all messages from a specific application.
@@ -261,7 +259,7 @@ func (a *MessageAPI) DeleteMessageWithApplication(ctx *gin.Context) {
 		if success := successOrAbort(ctx, 500, err); !success {
 			return
 		}
-		if application != nil && application.UserID == auth.GetUserID(ctx) {
+		if application != nil {
 			successOrAbort(ctx, 500, a.DB.DeleteMessagesByApplication(id))
 		} else {
 			ctx.AbortWithError(404, errors.New("application does not exists"))
@@ -313,15 +311,7 @@ func (a *MessageAPI) DeleteMessage(ctx *gin.Context) {
 			ctx.AbortWithError(404, errors.New("message does not exist"))
 			return
 		}
-		app, err := a.DB.GetApplicationByID(msg.ApplicationID)
-		if success := successOrAbort(ctx, 500, err); !success {
-			return
-		}
-		if app != nil && app.UserID == auth.GetUserID(ctx) {
-			successOrAbort(ctx, 500, a.DB.DeleteMessageByID(id))
-		} else {
-			ctx.AbortWithError(404, errors.New("message does not exist"))
-		}
+		successOrAbort(ctx, 500, a.DB.DeleteMessageByID(id))
 	})
 }
 
@@ -331,9 +321,9 @@ func (a *MessageAPI) DeleteMessage(ctx *gin.Context) {
 // Create a message.
 //
 // __NOTE__: When authenticating with a client token or basic auth, the request body
-// must include "appid" referencing an application owned by the authenticated user.
-// When authenticating with an application token, the application is derived from the
-// token and any "appid" in the body is ignored.
+// must include "appid" referencing an existing application. When authenticating with
+// an application token, the application is derived from the token and any "appid" in
+// the body is ignored.
 //
 //	---
 //	consumes: [application/json]
@@ -379,7 +369,7 @@ func (a *MessageAPI) CreateMessage(ctx *gin.Context) {
 		if success := successOrAbort(ctx, 500, err); !success {
 			return
 		}
-		if fetchedApp == nil || fetchedApp.UserID != auth.GetUserID(ctx) {
+		if fetchedApp == nil {
 			ctx.AbortWithError(400, errors.New("appid not found"))
 			return
 		}

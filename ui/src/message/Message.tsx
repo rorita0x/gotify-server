@@ -99,6 +99,7 @@ interface IProps {
     priority: number;
     appName: string;
     fDelete: VoidFunction;
+    canDelete: boolean;
     extras?: IMessageExtras;
     expanded: boolean;
     onExpand: (expand: boolean) => void;
@@ -116,6 +117,7 @@ const priorityColor = (priority: number) => {
 
 const Message = ({
     fDelete,
+    canDelete,
     title,
     date,
     image,
@@ -175,6 +177,7 @@ const Message = ({
                 {smallHeader ? (
                     <HeaderSmall
                         fDelete={fDelete}
+                        canDelete={canDelete}
                         title={title}
                         appName={appName}
                         image={image}
@@ -183,6 +186,7 @@ const Message = ({
                 ) : (
                     <HeaderWide
                         fDelete={fDelete}
+                        canDelete={canDelete}
                         title={title}
                         appName={appName}
                         image={image}
@@ -222,8 +226,9 @@ const HeaderWide = ({
     image,
     date,
     fDelete,
+    canDelete,
     title,
-}: Pick<IProps, 'appName' | 'image' | 'fDelete' | 'date' | 'title'>) => {
+}: Pick<IProps, 'appName' | 'image' | 'fDelete' | 'canDelete' | 'date' | 'title'>) => {
     const {classes} = useStyles();
 
     return (
@@ -250,13 +255,15 @@ const HeaderWide = ({
             <Typography variant="body1" className={classes.date}>
                 <TimeAgo date={date} formatter={TimeAgoFormatter.narrow} />
             </Typography>
-            <IconButton
-                onClick={fDelete}
-                style={{padding: 14}}
-                className={`${classes.trash} delete`}
-                size="large">
-                <Delete />
-            </IconButton>
+            {canDelete && (
+                <IconButton
+                    onClick={fDelete}
+                    style={{padding: 14}}
+                    className={`${classes.trash} delete`}
+                    size="large">
+                    <Delete />
+                </IconButton>
+            )}
         </div>
     );
 };
@@ -265,8 +272,9 @@ const HeaderSmall = ({
     image,
     date,
     fDelete,
+    canDelete,
     title,
-}: Pick<IProps, 'appName' | 'image' | 'fDelete' | 'date' | 'title'>) => {
+}: Pick<IProps, 'appName' | 'image' | 'fDelete' | 'canDelete' | 'date' | 'title'>) => {
     const {classes} = useStyles();
 
     return (
@@ -283,13 +291,15 @@ const HeaderSmall = ({
                 </Typography>
             </div>
             <div style={{display: 'flex', alignItems: 'end', flexDirection: 'column'}}>
-                <IconButton
-                    onClick={fDelete}
-                    style={{padding: 14}}
-                    className={`${classes.trash} delete`}
-                    size="large">
-                    <Delete />
-                </IconButton>
+                {canDelete && (
+                    <IconButton
+                        onClick={fDelete}
+                        style={{padding: 14}}
+                        className={`${classes.trash} delete`}
+                        size="large">
+                        <Delete />
+                    </IconButton>
+                )}
                 <div style={{width: 30, height: 30}}>
                     {image !== null ? (
                         <img

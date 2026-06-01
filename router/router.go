@@ -195,17 +195,10 @@ func Create(db *database.GormDatabase, vInfo *model.VersionInfo, conf *config.Co
 		clientAuth.Use(authentication.RequireClient)
 		app := clientAuth.Group("/application")
 		{
+			// Applications are shared: every user can view all applications and
+			// their messages. Managing applications is restricted to admins below.
 			app.GET("", applicationHandler.GetApplications)
-			app.POST("", applicationHandler.CreateApplication)
-			app.POST("/:id/image", applicationHandler.UploadApplicationImage)
-			app.DELETE("/:id/image", applicationHandler.RemoveApplicationImage)
-			app.PUT("/:id", applicationHandler.UpdateApplication)
-
-			tokenMessage := app.Group("/:id/message")
-			{
-				tokenMessage.GET("", messageHandler.GetMessagesWithApplication)
-				tokenMessage.DELETE("", messageHandler.DeleteMessageWithApplication)
-			}
+			app.GET("/:id/message", messageHandler.GetMessagesWithApplication)
 		}
 
 		client := clientAuth.Group("/client")
@@ -218,8 +211,6 @@ func Create(db *database.GormDatabase, vInfo *model.VersionInfo, conf *config.Co
 		message := clientAuth.Group("/message")
 		{
 			message.GET("", messageHandler.GetMessages)
-			message.DELETE("", messageHandler.DeleteMessages)
-			message.DELETE("/:id", messageHandler.DeleteMessage)
 		}
 
 		clientAuth.GET("/stream", streamHandler.Handle)
@@ -231,9 +222,30 @@ func Create(db *database.GormDatabase, vInfo *model.VersionInfo, conf *config.Co
 	{
 		clientElevated.Use(authentication.RequireElevatedClient)
 		clientElevated.POST("/client/:id/elevate", clientHandler.ElevateClient)
-		clientElevated.DELETE("/application/:id", applicationHandler.DeleteApplication)
 		clientElevated.DELETE("/client/:id", clientHandler.DeleteClient)
 		clientElevated.POST("/current/user/password", userHandler.ChangePassword)
+	}
+
+	adminAuth := g.Group("")
+	{
+		adminAuth.Use(authentication.RequireAdmin)
+		// Only admins can create and manage the shared applications.
+		app := adminAuth.Group("/application")
+		{
+			app.POST("", applicationHandler.CreateApplication)
+			app.PUT("/:id", applicationHandler.UpdateApplication)
+			app.DELETE("/:id", applicationHandler.DeleteApplication)
+			app.POST("/:id/image", applicationHandler.UploadApplicationImage)
+			app.DELETE("/:id/image", applicationHandler.RemoveApplicationImage)
+			app.DELETE("/:id/message", messageHandler.DeleteMessageWithApplication)
+		}
+
+		// Deleting messages from the shared inbox is restricted to admins.
+		message := adminAuth.Group("/message")
+		{
+			message.DELETE("", messageHandler.DeleteMessages)
+			message.DELETE("/:id", messageHandler.DeleteMessage)
+		}
 	}
 
 	authAdmin := g.Group("/user")

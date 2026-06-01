@@ -23,7 +23,8 @@ const Messages = observer(() => {
     const [deleteAll, setDeleteAll] = React.useState(false);
     const [pushMessageOpen, setPushMessageOpen] = React.useState(false);
     const [isLoadingMore, setLoadingMore] = React.useState(false);
-    const {messagesStore, appStore} = useStores();
+    const {messagesStore, appStore, currentUser} = useStores();
+    const admin = currentUser.user.admin;
     const messages = messagesStore.get(appId);
     const hasMore = messagesStore.canLoadMore(appId);
     const name = appStore.getName(appId);
@@ -61,6 +62,7 @@ const Messages = observer(() => {
         <Message
             key={message.id}
             fDelete={() => deleteMessage(message)}
+            canDelete={admin}
             onExpand={(expanded) => (expandedState.current[message.id] = expanded)}
             title={message.title}
             date={message.date}
@@ -135,16 +137,18 @@ const Messages = observer(() => {
                         style={{marginRight: 5}}>
                         Refresh
                     </Button>
-                    <Button
-                        id="delete-all"
-                        variant="contained"
-                        disabled={!hasMessages}
-                        color="primary"
-                        onClick={() => {
-                            setDeleteAll(true);
-                        }}>
-                        Delete All
-                    </Button>
+                    {admin && (
+                        <Button
+                            id="delete-all"
+                            variant="contained"
+                            disabled={!hasMessages}
+                            color="primary"
+                            onClick={() => {
+                                setDeleteAll(true);
+                            }}>
+                            Delete All
+                        </Button>
+                    )}
                 </div>
             }>
             {!messagesStore.loaded(appId) ? <LoadingSpinner /> : renderMessages()}

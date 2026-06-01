@@ -146,7 +146,9 @@ func (s *ApplicationSuite) Test_CreateApplication_ignoresReadOnlyPropertiesInPar
 	test.BodyEquals(s.T(), expected, s.recorder)
 }
 
-func (s *ApplicationSuite) Test_DeleteApplication_expectNotFoundOnCurrentUserIsNotOwner() {
+func (s *ApplicationSuite) Test_DeleteApplication_byNonOwner_succeeds() {
+	// Applications are shared and managed by admins, so the handler no longer
+	// enforces ownership (admin access is enforced at the route level).
 	s.db.User(2)
 	s.db.User(5).App(5)
 
@@ -156,8 +158,8 @@ func (s *ApplicationSuite) Test_DeleteApplication_expectNotFoundOnCurrentUserIsN
 
 	s.a.DeleteApplication(s.ctx)
 
-	assert.Equal(s.T(), 404, s.recorder.Code)
-	s.db.AssertAppExist(5)
+	assert.Equal(s.T(), 200, s.recorder.Code)
+	s.db.AssertAppNotExist(5)
 }
 
 func (s *ApplicationSuite) Test_CreateApplication_onlyRequiredParameters() {
@@ -641,15 +643,21 @@ func (s *ApplicationSuite) Test_UpdateApplication_WithMissingAttributes_expectBa
 	assert.Equal(s.T(), 400, s.recorder.Code)
 }
 
-func (s *ApplicationSuite) Test_UpdateApplication_WithoutPermission_expectNotFound() {
+func (s *ApplicationSuite) Test_UpdateApplication_byNonOwner_succeeds() {
+	// Applications are shared and managed by admins, so the handler no longer
+	// enforces ownership (admin access is enforced at the route level).
 	s.db.User(5).NewAppWithToken(2, "app-2")
 
 	test.WithUser(s.ctx, 4)
+	s.withFormData("name=new_name")
 	s.ctx.Params = gin.Params{{Key: "id", Value: "2"}}
 
 	s.a.UpdateApplication(s.ctx)
 
-	assert.Equal(s.T(), 404, s.recorder.Code)
+	assert.Equal(s.T(), 200, s.recorder.Code)
+	if app, err := s.db.GetApplicationByID(2); assert.NoError(s.T(), err) {
+		assert.Equal(s.T(), "new_name", app.Name)
+	}
 }
 
 func (s *ApplicationSuite) Test_UpdateApplication_duplicateSortKey() {

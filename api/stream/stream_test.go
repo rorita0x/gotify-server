@@ -235,28 +235,20 @@ func TestDeleteMultipleClients(t *testing.T) {
 
 	waitForConnectedClients(api, len(userOne)+len(userTwo)+len(userThree))
 
+	// Applications are shared, so every connected client receives the message.
 	api.Notify(1, &model.MessageExternal{ID: 4, Message: "there"})
 	expectMessage(&model.MessageExternal{ID: 4, Message: "there"}, userOne...)
-	expectNoMessage(userTwo...)
-	expectNoMessage(userThree...)
+	expectMessage(&model.MessageExternal{ID: 4, Message: "there"}, userTwo...)
+	expectMessage(&model.MessageExternal{ID: 4, Message: "there"}, userThree...)
 
+	// the two connections with token "1-2" are closed and stop receiving
 	api.NotifyDeletedClient(1, "1-2")
 
 	api.Notify(1, &model.MessageExternal{ID: 2, Message: "there"})
 	expectMessage(&model.MessageExternal{ID: 2, Message: "there"}, userOneIPhone, userOneOther)
 	expectNoMessage(userOneBrowser, userOneAndroid)
-	expectNoMessage(userThree...)
-	expectNoMessage(userTwo...)
-
-	api.Notify(2, &model.MessageExternal{ID: 2, Message: "there"})
-	expectNoMessage(userOne...)
 	expectMessage(&model.MessageExternal{ID: 2, Message: "there"}, userTwo...)
-	expectNoMessage(userThree...)
-
-	api.Notify(3, &model.MessageExternal{ID: 5, Message: "there"})
-	expectNoMessage(userOne...)
-	expectNoMessage(userTwo...)
-	expectMessage(&model.MessageExternal{ID: 5, Message: "there"}, userThree...)
+	expectMessage(&model.MessageExternal{ID: 2, Message: "there"}, userThree...)
 
 	api.Close()
 }
@@ -298,27 +290,19 @@ func TestDeleteUser(t *testing.T) {
 
 	waitForConnectedClients(api, len(userOne)+len(userTwo)+len(userThree))
 
+	// Applications are shared, so every connected client receives the message.
 	api.Notify(1, &model.MessageExternal{ID: 4, Message: "there"})
 	expectMessage(&model.MessageExternal{ID: 4, Message: "there"}, userOne...)
-	expectNoMessage(userTwo...)
-	expectNoMessage(userThree...)
+	expectMessage(&model.MessageExternal{ID: 4, Message: "there"}, userTwo...)
+	expectMessage(&model.MessageExternal{ID: 4, Message: "there"}, userThree...)
 
+	// all connections of user one are closed and stop receiving
 	api.NotifyDeletedUser(1)
-
-	api.Notify(1, &model.MessageExternal{ID: 2, Message: "there"})
-	expectNoMessage(userOne...)
-	expectNoMessage(userThree...)
-	expectNoMessage(userTwo...)
 
 	api.Notify(2, &model.MessageExternal{ID: 2, Message: "there"})
 	expectNoMessage(userOne...)
 	expectMessage(&model.MessageExternal{ID: 2, Message: "there"}, userTwo...)
-	expectNoMessage(userThree...)
-
-	api.Notify(3, &model.MessageExternal{ID: 5, Message: "there"})
-	expectNoMessage(userOne...)
-	expectNoMessage(userTwo...)
-	expectMessage(&model.MessageExternal{ID: 5, Message: "there"}, userThree...)
+	expectMessage(&model.MessageExternal{ID: 2, Message: "there"}, userThree...)
 
 	api.Close()
 }
@@ -399,16 +383,18 @@ func TestMultipleClients(t *testing.T) {
 	expectNoMessage(userTwo...)
 	expectNoMessage(userThree...)
 
+	// Applications are shared, so every connected client receives every message
+	// regardless of the userID passed to Notify.
 	api.Notify(1, &model.MessageExternal{ID: 1, Message: "hello"})
 	time.Sleep(500 * time.Millisecond)
 	expectMessage(&model.MessageExternal{ID: 1, Message: "hello"}, userOne...)
-	expectNoMessage(userTwo...)
-	expectNoMessage(userThree...)
+	expectMessage(&model.MessageExternal{ID: 1, Message: "hello"}, userTwo...)
+	expectMessage(&model.MessageExternal{ID: 1, Message: "hello"}, userThree...)
 
 	api.Notify(2, &model.MessageExternal{ID: 2, Message: "there"})
-	expectNoMessage(userOne...)
+	expectMessage(&model.MessageExternal{ID: 2, Message: "there"}, userOne...)
 	expectMessage(&model.MessageExternal{ID: 2, Message: "there"}, userTwo...)
-	expectNoMessage(userThree...)
+	expectMessage(&model.MessageExternal{ID: 2, Message: "there"}, userThree...)
 
 	userOneIPhone.conn.Close()
 
@@ -416,17 +402,18 @@ func TestMultipleClients(t *testing.T) {
 	expectNoMessage(userTwo...)
 	expectNoMessage(userThree...)
 
+	// the closed connection no longer receives, everyone else still does
 	api.Notify(1, &model.MessageExternal{ID: 3, Message: "how"})
 	expectMessage(&model.MessageExternal{ID: 3, Message: "how"}, userOneAndroid, userOneBrowser)
 	expectNoMessage(userOneIPhone)
-	expectNoMessage(userTwo...)
-	expectNoMessage(userThree...)
+	expectMessage(&model.MessageExternal{ID: 3, Message: "how"}, userTwo...)
+	expectMessage(&model.MessageExternal{ID: 3, Message: "how"}, userThree...)
 
 	api.Notify(2, &model.MessageExternal{ID: 4, Message: "are"})
-
-	expectNoMessage(userOne...)
+	expectMessage(&model.MessageExternal{ID: 4, Message: "are"}, userOneAndroid, userOneBrowser)
+	expectNoMessage(userOneIPhone)
 	expectMessage(&model.MessageExternal{ID: 4, Message: "are"}, userTwo...)
-	expectNoMessage(userThree...)
+	expectMessage(&model.MessageExternal{ID: 4, Message: "are"}, userThree...)
 
 	api.Close()
 

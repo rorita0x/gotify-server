@@ -50,6 +50,21 @@ func (d *GormDatabase) GetMessagesByUserSince(userID uint, limit int, since uint
 	return messages, err
 }
 
+// GetMessagesSince returns limited messages from all applications.
+// If since is 0 it will be ignored.
+func (d *GormDatabase) GetMessagesSince(limit int, since uint) ([]*model.Message, error) {
+	var messages []*model.Message
+	db := d.DB.Order("messages.id desc").Limit(limit)
+	if since != 0 {
+		db = db.Where("messages.id < ?", since)
+	}
+	err := db.Find(&messages).Error
+	if err == gorm.ErrRecordNotFound {
+		err = nil
+	}
+	return messages, err
+}
+
 // GetMessagesByApplication returns all messages from an application.
 func (d *GormDatabase) GetMessagesByApplication(tokenID uint) ([]*model.Message, error) {
 	var messages []*model.Message
@@ -83,6 +98,11 @@ func (d *GormDatabase) DeleteMessageByID(id uint) error {
 // DeleteMessagesByApplication deletes all messages from an application.
 func (d *GormDatabase) DeleteMessagesByApplication(applicationID uint) error {
 	return d.DB.Where("application_id = ?", applicationID).Delete(&model.Message{}).Error
+}
+
+// DeleteAllMessages deletes all messages.
+func (d *GormDatabase) DeleteAllMessages() error {
+	return d.DB.Where("1 = 1").Delete(&model.Message{}).Error
 }
 
 // DeleteMessagesByUser deletes all messages from a user.

@@ -218,7 +218,8 @@ func (s *MessageSuite) Test_GetMessagesWithToken_WithLimit_WithSince_ReturnsNext
 	test.BodyEquals(s.T(), expected, s.recorder)
 }
 
-func (s *MessageSuite) Test_GetMessagesWithToken_withWrongUser_expectNotFound() {
+func (s *MessageSuite) Test_GetMessagesWithToken_withOtherUser_succeeds() {
+	// Applications are shared, so any user can read any application's messages.
 	s.db.User(4)
 	s.db.User(5).App(2).Message(66)
 
@@ -226,7 +227,7 @@ func (s *MessageSuite) Test_GetMessagesWithToken_withWrongUser_expectNotFound() 
 	s.ctx.Params = gin.Params{{Key: "id", Value: "2"}}
 	s.a.GetMessagesWithApplication(s.ctx)
 
-	assert.Equal(s.T(), 404, s.recorder.Code)
+	assert.Equal(s.T(), 200, s.recorder.Code)
 }
 
 func (s *MessageSuite) Test_DeleteMessage_invalidID() {
@@ -246,7 +247,9 @@ func (s *MessageSuite) Test_DeleteMessage_notExistingID() {
 	assert.Equal(s.T(), 404, s.recorder.Code)
 }
 
-func (s *MessageSuite) Test_DeleteMessage_existingIDButNotOwner() {
+func (s *MessageSuite) Test_DeleteMessage_existingIDByOtherUser_succeeds() {
+	// Messages belong to the shared inbox, so the handler no longer enforces
+	// ownership (admin access is enforced at the route level).
 	s.db.User(1).App(10).Message(100)
 	s.db.User(2)
 
@@ -254,7 +257,8 @@ func (s *MessageSuite) Test_DeleteMessage_existingIDButNotOwner() {
 	s.ctx.Params = gin.Params{{Key: "id", Value: "100"}}
 	s.a.DeleteMessage(s.ctx)
 
-	assert.Equal(s.T(), 404, s.recorder.Code)
+	assert.Equal(s.T(), 200, s.recorder.Code)
+	s.db.AssertMessageNotExist(100)
 }
 
 func (s *MessageSuite) Test_DeleteMessage() {
@@ -290,7 +294,8 @@ func (s *MessageSuite) Test_DeleteMessageWithToken_notExistingID() {
 	assert.Equal(s.T(), 404, s.recorder.Code)
 }
 
-func (s *MessageSuite) Test_DeleteMessageWithToken_notOwner() {
+func (s *MessageSuite) Test_DeleteMessageWithToken_otherUser_succeeds() {
+	// Applications are shared, so any user can clear any application's messages.
 	s.db.User(4)
 	s.db.User(2).App(55).Message(5)
 
@@ -298,11 +303,13 @@ func (s *MessageSuite) Test_DeleteMessageWithToken_notOwner() {
 	s.ctx.Params = gin.Params{{Key: "id", Value: "55"}}
 	s.a.DeleteMessageWithApplication(s.ctx)
 
-	s.db.AssertMessageExist(5)
-	assert.Equal(s.T(), 404, s.recorder.Code)
+	s.db.AssertMessageNotExist(5)
+	assert.Equal(s.T(), 200, s.recorder.Code)
 }
 
 func (s *MessageSuite) Test_DeleteMessages() {
+	// The inbox is shared, so deleting all messages removes every message,
+	// including those of other users' applications.
 	userBuilder := s.db.User(4)
 	userBuilder.App(5).Message(5).Message(6)
 	userBuilder.App(2).Message(7).Message(8)
@@ -312,8 +319,7 @@ func (s *MessageSuite) Test_DeleteMessages() {
 	s.a.DeleteMessages(s.ctx)
 
 	assert.Equal(s.T(), 200, s.recorder.Code)
-	s.db.AssertMessageExist(22)
-	s.db.AssertMessageNotExist(5, 6, 7, 8)
+	s.db.AssertMessageNotExist(22, 5, 6, 7, 8)
 }
 
 func (s *MessageSuite) Test_CreateMessage_onJson_allParams() {
@@ -576,7 +582,8 @@ func (s *MessageSuite) Test_CreateMessage_clientToken_missingAppId_400() {
 	}
 }
 
-func (s *MessageSuite) Test_CreateMessage_clientToken_appNotOwned_400() {
+func (s *MessageSuite) Test_CreateMessage_clientToken_otherApp_succeeds() {
+	// Applications are shared, so a user may post to any application by appid.
 	s.db.User(5).NewAppWithToken(7, "other-app-token")
 	auth.RegisterClient(s.ctx, s.db.User(4).NewClientWithToken(1, "client-token"))
 
@@ -585,10 +592,10 @@ func (s *MessageSuite) Test_CreateMessage_clientToken_appNotOwned_400() {
 
 	s.a.CreateMessage(s.ctx)
 
-	assert.Equal(s.T(), 400, s.recorder.Code)
-	assert.Nil(s.T(), s.notifiedMessage)
+	assert.Equal(s.T(), 200, s.recorder.Code)
+	assert.NotNil(s.T(), s.notifiedMessage)
 	if msgs, err := s.db.GetMessagesByApplication(7); assert.NoError(s.T(), err) {
-		assert.Empty(s.T(), msgs)
+		assert.Len(s.T(), msgs, 1)
 	}
 }
 
